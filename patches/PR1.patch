@@ -1,0 +1,571 @@
+diff --git a/configure.ac b/configure.ac
+index 629881a..ba4c321 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -41,13 +41,6 @@ AC_PROG_CPP
+ AC_PROG_INSTALL
+ AC_PROG_LN_S
+ 
+-dnl Check pkg-config is there for autoconf and at ./configure
+-m4_ifndef([PKG_PREREQ],
+-  [m4_fatal([must install pkg-config 0.29 or later before running autoconf/autogen])])
+-PKG_PROG_PKG_CONFIG
+-AS_IF([test -z "$PKG_CONFIG"],[
+-  AC_MSG_ERROR([Could not find pkg-config])])
+-
+ AC_PROG_MAKE_SET
+ 
+ AC_DEFUN([PROCPS_PROG_PO4A], [
+@@ -84,10 +77,8 @@ LT_INIT
+ # Checks for library functions.
+ AC_FUNC_ERROR_AT_LINE
+ AC_FUNC_FORK
+-AC_FUNC_MALLOC
+ AC_FUNC_MBRTOWC
+ AC_FUNC_MMAP
+-AC_FUNC_REALLOC
+ AC_FUNC_STRCOLL
+ AC_FUNC_STRTOD
+ 
+diff --git a/library/diskstats.c b/library/diskstats.c
+index b4e41f3..70e032e 100644
+--- a/library/diskstats.c
++++ b/library/diskstats.c
+@@ -913,6 +913,31 @@ PROCPS_EXPORT struct diskstats_stack *procps_diskstats_select (
+ } // end: procps_diskstats_select
+ 
+ 
++// Global variable for context
++static void* global_context;
++
++// Comparison function that takes a context pointer
++int compare_with_context(const void* a, const void* b) {
++    // You can use global_context here
++    // For simplicity, this example compares integers
++    int int_a = *((int*)a);
++    int int_b = *((int*)b);
++    return int_a - int_b;
++}
++
++// Wrapper function to pass the context
++void qsort_r(void* base, size_t nmemb, size_t size,
++                           void* context, int (*compar)(const void*, const void*)) {
++    // Set the global context for the comparison function
++    global_context = context;
++
++    // Use qsort with the wrapper comparison function
++    qsort(base, nmemb, size, compar);
++    
++    // Clear the global context after sorting
++    global_context = NULL;
++}
++
+ /*
+  * procps_diskstats_sort():
+  *
+diff --git a/library/include/readproc.h b/library/include/readproc.h
+index 33c630e..42bd90f 100644
+--- a/library/include/readproc.h
++++ b/library/include/readproc.h
+@@ -39,6 +39,8 @@
+ // neither tgid nor tid seemed correct. (in other words, FIXME)
+ #define XXXID tid
+ 
++#undef environ
++
+ // Basic data structure which holds all information we can get about a process.
+ // (unless otherwise specified, fields are read from /proc/#/stat)
+ //
+diff --git a/library/meminfo.c b/library/meminfo.c
+index 4289a23..29f7e92 100644
+--- a/library/meminfo.c
++++ b/library/meminfo.c
+@@ -21,7 +21,9 @@
+ 
+ #include <errno.h>
+ #include <fcntl.h>
++#ifndef __MVS__
+ #include <search.h>
++#endif
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -31,6 +33,82 @@
+ #include <sys/stat.h>
+ #include <sys/types.h>
+ 
++#ifdef __MVS__
++
++typedef struct _ENTRY {
++    char *key;
++    void *data;
++    struct _ENTRY *next;
++} ENTRY;
++
++typedef enum {
++    ENTER,
++    FIND
++} ACTION;
++
++typedef struct hsearch_data {
++    ENTRY *table;
++    unsigned int size;
++    unsigned int filled;
++} hsearch_data;
++
++int hcreate_r (size_t nel, struct hsearch_data *htab);
++void hdestroy_r (struct hsearch_data *htab);
++int hsearch_r (ENTRY item, ACTION action, ENTRY **retval, struct hsearch_data *htab);
++
++int hcreate_r(size_t nel, hsearch_data *htab) {
++    htab->size = nel;
++    htab->filled = 0;
++    htab->table = calloc(nel, sizeof(ENTRY));
++    return 0;
++}
++
++void hdestroy_r(hsearch_data *htab) {
++    for (int i = 0; i < htab->size; i++) {
++        ENTRY *entry = &htab->table[i];
++        while (entry) {
++            ENTRY *next = entry->next;
++            free(entry->key);
++            free(entry->data);
++            entry = next;
++        }
++    }
++    free(htab->table);
++}
++
++int hsearch_r(ENTRY item, ACTION action, ENTRY **retval, hsearch_data *htab) {
++    unsigned int hash = (unsigned int) (strlen(item.key) % htab->size);
++    ENTRY *entry = &htab->table[hash];
++
++    while (entry) {
++        if (strcmp(entry->key, item.key) == 0) {
++            if (action == FIND) {
++                *retval = entry;
++                return 1;
++            } else { // ENTER
++                free(entry->data);
++                entry->data = item.data;
++                return 1;
++            }
++        }
++        entry = entry->next;
++    }
++
++    if (action == ENTER) {
++        ENTRY *new_entry = malloc(sizeof(ENTRY));
++        new_entry->key = item.key;
++        new_entry->data = item.data;
++        new_entry->next = &htab->table[hash]; // added the address-of operator
++        htab->table[hash] = *new_entry; // dereferenced the pointer
++        htab->filled++;
++        *retval = new_entry;
++        return 1;
++    }
++
++    return 0;
++}
++#endif
++
+ #include "procps-private.h"
+ #include "meminfo.h"
+ 
+@@ -670,7 +748,11 @@ static int meminfo_read_failed (
+     head = buf;
+ 
+     for (;;) {
++#ifdef __MVS__
++        static ENTRY e;  // keep coverity off our backs (e.data)
++#else
+         static __thread ENTRY e;  // keep coverity off our backs (e.data)
++#endif
+         ENTRY *ep;
+ 
+         if (!(tail = strchr(head, ':')))
+diff --git a/library/pids.c b/library/pids.c
+index 12aee10..fecc959 100644
+--- a/library/pids.c
++++ b/library/pids.c
+@@ -43,6 +43,7 @@
+ #include "procps-private.h"
+ #include "pids.h"
+ 
++#undef environ
+ 
+ //#define UNREF_RPTHASH                // report hash details at uref() time
+ 
+diff --git a/library/sysinfo.c b/library/sysinfo.c
+index 35a9922..de937ce 100644
+--- a/library/sysinfo.c
++++ b/library/sysinfo.c
+@@ -92,6 +92,8 @@ PROCPS_EXPORT int procps_loadavg(
+         double *restrict av5,
+         double *restrict av15)
+ {
++    return 0;
++/*
+     double avg_1=0, avg_5=0, avg_15=0;
+     locale_t tmplocale;
+     int retval=0;
+@@ -112,6 +114,7 @@ PROCPS_EXPORT int procps_loadavg(
+     SET_IF_DESIRED(av5,  avg_5);
+     SET_IF_DESIRED(av15, avg_15);
+     return retval;
++*/
+ }
+ 
+ /////////////////////////////////////////////////////////////////////////////
+@@ -131,6 +134,7 @@ PROCPS_EXPORT unsigned int procps_pid_length(void)
+ {
+     FILE *fp;
+     char pidbuf[24];
++#define __thread
+     static __thread int pid_length=0;
+ 
+     if (pid_length)
+@@ -157,11 +161,15 @@ PROCPS_EXPORT unsigned int procps_pid_length(void)
+  */
+ long procps_cpu_count(void)
+ {
++#ifdef __MVS__
++  return __get_num_online_cpus();
++#else
+     long cpus;
+ 
+     cpus = sysconf(_SC_NPROCESSORS_ONLN);
+     if (cpus < 1)
+         return 1;
+     return cpus;
++#endif
+ }
+ 
+diff --git a/library/uptime.c b/library/uptime.c
+index 16f1b05..8dbf4af 100644
+--- a/library/uptime.c
++++ b/library/uptime.c
+@@ -30,12 +30,17 @@
+ #include <string.h>
+ #include <time.h>
+ #include <unistd.h>
++#ifdef __MVS__
++#include <utmpx.h>
++#else
+ #include <utmp.h>
++#endif
+ 
+ #include "misc.h"
+ #include "procps-private.h"
+ 
+ #define UPTIME_FILE "/proc/uptime"
++#define __thread 
+ 
+ static __thread char upbuf[256];
+ static __thread char shortbuf[256];
+@@ -43,14 +48,14 @@ static __thread char shortbuf[256];
+ static int count_users(void)
+ {
+     int numuser = 0;
+-    struct utmp *ut;
++    struct utmpx *ut;
+ 
+-    setutent();
+-    while ((ut = getutent())) {
+-    if ((ut->ut_type == USER_PROCESS) && (ut->ut_name[0] != '\0'))
++    setutxent();
++    while ((ut = getutxent())) {
++    if ((ut->ut_type == USER_PROCESS) && (ut->ut_user[0] != '\0'))
+         numuser++;
+     }
+-    endutent();
++    endutxent();
+ 
+     return numuser;
+ }
+@@ -70,19 +75,19 @@ PROCPS_EXPORT int procps_uptime(
+         double *restrict idle_secs)
+ {
+     double up=0, idle=0;
+-    locale_t tmplocale;
++    //locale_t tmplocale;
+     FILE *fp;
+     int rc;
+ 
+     if ((fp = fopen(UPTIME_FILE, "r")) == NULL)
+         return -errno;
+ 
+-    tmplocale = newlocale(LC_NUMERIC_MASK, "C", (locale_t)0);
+-    uselocale(tmplocale);
++    //tmplocale = newlocale(LC_NUMERIC_MASK, "C", (locale_t)0);
++    //uselocale(tmplocale);
+     rc = fscanf(fp, "%lf %lf", &up, &idle);
+     fclose(fp);
+-    uselocale(LC_GLOBAL_LOCALE);
+-    freelocale(tmplocale);
++    //uselocale(LC_GLOBAL_LOCALE);
++    //freelocale(tmplocale);
+ 
+     if (uptime_secs)
+         *uptime_secs = up;
+diff --git a/library/vmstat.c b/library/vmstat.c
+index f9ae715..61f8077 100644
+--- a/library/vmstat.c
++++ b/library/vmstat.c
+@@ -24,7 +24,9 @@
+ 
+ #include <errno.h>
+ #include <fcntl.h>
++#ifndef __MVS__
+ #include <search.h>
++#endif
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -34,6 +36,33 @@
+ #include <sys/stat.h>
+ #include <sys/types.h>
+ 
++#define __thread
++
++#ifdef __MVS__
++
++typedef struct _ENTRY {
++    char *key;
++    void *data;
++    struct _ENTRY *next;
++} ENTRY;
++
++typedef enum {
++    ENTER,
++    FIND
++} ACTION;
++
++typedef struct hsearch_data {
++    ENTRY *table;
++    unsigned int size;
++    unsigned int filled;
++} hsearch_data;
++
++
++int hcreate_r (size_t nel, struct hsearch_data *htab);
++void hdestroy_r (struct hsearch_data *htab);
++int hsearch_r (ENTRY item, ACTION action, ENTRY **retval, struct hsearch_data *htab);
++#endif
++
+ #include "procps-private.h"
+ #include "vmstat.h"
+ 
+diff --git a/local/procio.c b/local/procio.c
+index bbd7c84..bfce433 100644
+--- a/local/procio.c
++++ b/local/procio.c
+@@ -46,6 +46,7 @@ static ssize_t proc_read(void *, char *, size_t);
+ static ssize_t proc_write(void *, const char *, size_t);
+ static int proc_close(void *);
+ 
++#ifndef __MVS__
+ __extension__
+ static cookie_io_functions_t procio = {
+     .read  = proc_read,
+@@ -53,6 +54,7 @@ static cookie_io_functions_t procio = {
+     .seek  = NULL,
+     .close = proc_close,
+ };
++#endif
+ 
+ FILE *fprocopen(const char *path, const char *mode)
+ {
+@@ -89,7 +91,9 @@ FILE *fprocopen(const char *path, const char *mode)
+ 			errno = EINVAL;
+ 			goto out;
+ 		case 'e':
++#ifndef __MVS__
+ 			flags |= O_CLOEXEC;
++#endif
+ 			continue;
+ 		case 'b':
+ 		case 'm':
+@@ -124,7 +128,11 @@ FILE *fprocopen(const char *path, const char *mode)
+ 	cookie->length = 0;
+ 	cookie->delim = delim;
+ 
++#ifdef __MVS__
++	cookie->fd = open(path, flags);
++#else
+ 	cookie->fd = openat(AT_FDCWD, path, flags);
++#endif
+ 	if (cookie->fd < 0) {
+ 		int errsv = errno;
+ 		free(cookie->buf);
+@@ -133,6 +141,7 @@ FILE *fprocopen(const char *path, const char *mode)
+ 		goto out;
+ 	}
+ 
++#ifndef __MVS__
+ 	handle = fopencookie(cookie, mode, procio);
+ 	if (!handle) {
+ 		int errsv = errno;
+@@ -142,6 +151,7 @@ FILE *fprocopen(const char *path, const char *mode)
+ 		errno = errsv;
+ 		goto out;
+ 	}
++#endif
+ out:
+ 	return handle;
+ }
+diff --git a/src/ps/display.c b/src/ps/display.c
+index 4207cf8..0c86abb 100644
+--- a/src/ps/display.c
++++ b/src/ps/display.c
+@@ -29,7 +29,9 @@
+ #include <string.h>
+ #include <unistd.h>
+ 
++#ifndef __MVS__
+ #include <sys/sysmacros.h>
++#endif
+ #include <sys/types.h>
+ 
+ #include "c.h"
+diff --git a/src/ps/global.c b/src/ps/global.c
+index 374b27f..cf50161 100644
+--- a/src/ps/global.c
++++ b/src/ps/global.c
+@@ -175,7 +175,7 @@ const char     *bsd_u_format = (const char *)0xdeadbeef;
+ const char     *bsd_v_format = (const char *)0xdeadbeef;
+ int             bsd_c_option = -1;
+ int             bsd_e_option = -1;
+-unsigned        cached_euid = 0xffffffff;
++uid_t cached_euid = 0xffffffff;
+ int             cached_tty = -1;
+ char            forest_prefix[4 * 32*1024 + 100];     // FIXME
+ int             forest_type = -1;
+diff --git a/src/ps/output.c b/src/ps/output.c
+index 7b9ecd1..ec2f200 100644
+--- a/src/ps/output.c
++++ b/src/ps/output.c
+@@ -2331,7 +2331,11 @@ void init_output(void)
+ 	    0,
+ 	    page_size * (outbuf_pages+1), // 1 more, for guard page at high addresses
+ 	    PROT_READ | PROT_WRITE,
+-	    MAP_PRIVATE | MAP_ANONYMOUS,
++#ifndef __MVS__
++           MAP_PRIVATE | MAP_ANONYMOUS,
++#else
++           MAP_PRIVATE ,
++#endif
+ 	    -1,
+ 	    0);
+ 
+diff --git a/src/pwdx.c b/src/pwdx.c
+index 90ead80..5cd53d1 100644
+--- a/src/pwdx.c
++++ b/src/pwdx.c
+@@ -1,4 +1,4 @@
+-/*
++/AIX*
+  * pwdx.c - print process working directory
+  *
+  * Copyright Â© 2015-2023 Craig Small <csmall@dropbear.xyz>
+diff --git a/src/slabtop.c b/src/slabtop.c
+index 7144348..474386c 100644
+--- a/src/slabtop.c
++++ b/src/slabtop.c
+@@ -27,7 +27,7 @@
+ #include <errno.h>
+ #include <getopt.h>
+ #include <locale.h>
+-#include <ncurses.h>
++#include <ncurses/ncurses.h>
+ #include <signal.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+diff --git a/src/top/top.c b/src/top/top.c
+index b09f659..21d5164 100644
+--- a/src/top/top.c
++++ b/src/top/top.c
+@@ -25,7 +25,9 @@
+ #include <limits.h>
+ #include <pwd.h>
+ #include <pthread.h>
++#ifndef __MVS__
+ #include <semaphore.h>
++#endif
+ #include <signal.h>
+ #include <stdarg.h>
+ #include <stdio.h>
+@@ -59,6 +61,10 @@
+ #include "top.h"
+ #include "top_nls.h"
+ 
++
++#undef key_tab
++#define __thread 
++
+ /*######  Miscellaneous global stuff  ####################################*/
+ 
+         /* The original and new terminal definitions
+@@ -4460,6 +4466,7 @@ static void whack_terminal (void) {
+    Ttychanged = 1;
+ 
+    // first, a consistent canonical mode for interactive line input
++  #define ECHOCTL 0
+    tmptty = Tty_original;
+    tmptty.c_lflag |= (ECHO | ECHOCTL | ECHOE | ICANON | ISIG);
+    tmptty.c_lflag &= ~NOFLSH;
+diff --git a/src/vmstat.c b/src/vmstat.c
+index c0cef95..d0067e8 100644
+--- a/src/vmstat.c
++++ b/src/vmstat.c
+@@ -924,6 +924,11 @@ static void fork_format(void)
+     procps_stat_unref(&stat_info);
+ }
+ 
++void setlinebuf(FILE *f)
++{
++    setvbuf(f, 0, _IOLBF, 0);
++}
++
+ static int winhi(void)
+ {
+     struct winsize win;
+diff --git a/src/w.c b/src/w.c
+index 5e878f0..c9f3eb5 100644
+--- a/src/w.c
++++ b/src/w.c
+@@ -69,6 +69,11 @@ typedef struct utmpx utmp_t;
+ typedef struct utmp utmp_t;
+ #endif
+ 
++#ifdef __MVS__
++#	define UT_HOSTSIZE 1024
++#	define UT_LINESIZE 33
++#	define UT_NAMESIZE 9
++#endif
+ #if !defined(UT_HOSTSIZE) || defined(__UT_HOSTSIZE)
+ #	define UT_HOSTSIZE __UT_HOSTSIZE
+ #	define UT_LINESIZE __UT_LINESIZE
+@@ -199,7 +204,7 @@ static void print_from(const utmp_t *restrict const u, const int ip_addresses, c
+ 	char buf[fromlen + 1];
+ 	char buf_ipv6[INET6_ADDRSTRLEN];
+ 	int len;
+-#ifndef __CYGWIN__
++#if !defined(__CYGWIN__) && !defined(__MVS__)
+ 	int32_t ut_addr_v6[4];      /* IP address of the remote host */
+ 
+ 	if (ip_addresses) { /* -i switch used */
+diff --git a/src/watch.c b/src/watch.c
+index cb2e299..acd9f29 100644
+--- a/src/watch.c
++++ b/src/watch.c
+@@ -55,7 +55,7 @@
+ # include <wctype.h>
+ # include <ncursesw/ncurses.h>
+ #else
+-# include <ncurses.h>
++# include <ncurses/ncurses.h>
+ #endif	/* WITH_WATCH8BIT */
+ 
+ #ifdef FORCE_8BIT
