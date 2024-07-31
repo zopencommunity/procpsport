@@ -1,15 +1,19 @@
 export ZOPEN_DEV_URL="https://gitlab.com/procps-ng/procps.git"
 export ZOPEN_DEV_DEPS="bash coreutils zoslib perl libtool make m4 gettext automake autoconf gzip tar sed grep findutils xz getopt ncurses curl"
-export ZOPEN_STABLE_URL="https://gitlab.com/procps-ng/procps/-/archive/v4.0.3/procps-v4.0.3.tar.gz"
-export ZOPEN_STABLE_DEPS="perl m4 gettext libtool autoconf automake wget bash coreutils zoslib make sed gawk pkgconfig xz getopt ncurses curl"
+export PROCPS_VERSION="4.0.3"
+export ZOPEN_STABLE_URL="https://gitlab.com/procps-ng/procps/-/archive/v${PROCPS_VERSION}/procps-v${PROCPS_VERSION}.tar.gz"
+export ZOPEN_STABLE_DEPS="perl m4 gettext libtool autoconf automake wget bash coreutils zoslib make sed gawk xz getopt ncurses curl"
 export ZOPEN_BOOTSTRAP="./autogen.sh"
 export ZOPEN_BUILD_LINE="STABLE"
 export ZOPEN_COMP=CLANG
-export ZOPEN_EXTRA_CONFIGURE_OPTS="--without-ncurses"
-export ZOPEN_EXTRA_CPPFLAGS="-I\${NCURSES_HOME}/include/ncurses"
+export ZOPEN_EXTRA_CONFIGURE_OPTS="--with-ncurses"
+export ZOPEN_EXTRA_CPPFLAGS="-I\${NCURSES_HOME}/include/ncurses -D__thread="
+export ZOPEN_CHECK="skip"
 
 zopen_post_buildenv()
 {
+  export NCURSES_LIBS="$LIBS"	
+  export NCURSES_CFLAGS="$CFLAGS $CPPCFLAGS"	
 }
 
 zopen_check_results()
@@ -35,9 +39,24 @@ zopen_append_to_setup()
   # echo commands that will run when installing via setup.sh
 }
 
+zopen_install_caveats()
+{
+  echo "Procps is currently in alpha and requires the /proc filesystem."
+}
+
+zopen_post_install()
+{
+  export ZOPEN_PROCS="watch pkill pmap pgrep"
+  findstring="find . -type f"
+  for cmd in $ZOPEN_PROCS; do
+    findstring="${findstring} ! -name ${cmd}"
+  done
+
+  # remove unsupported binaries: run as a child process so the directory change does not 'survive'
+  (cd "$1/bin" && ${findstring} -print | xargs rm)
+}
+
 zopen_get_version()
 {
-  # Modify to echo the version of your tool/library
-  # Rather than hardcoding the version, obtain the version by running the tool/library
-  echo "1.0.0"
+  echo "${PROCPS_VERSION}"
 }
