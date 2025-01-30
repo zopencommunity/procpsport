@@ -1,5 +1,5 @@
 diff --git a/configure.ac b/configure.ac
-index 629881a..d4fd740 100644
+index 629881a..ba4c321 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -41,13 +41,6 @@ AC_PROG_CPP
@@ -27,31 +27,34 @@ index 629881a..d4fd740 100644
  AC_FUNC_STRCOLL
  AC_FUNC_STRTOD
  
-@@ -222,24 +213,7 @@ AC_ARG_WITH([ncurses],
-   [],
-   [with_ncurses=yes]
- )
--if test "x$with_ncurses" = xno; then
--  AM_CONDITIONAL(WITH_NCURSES, false)
--  AS_IF([test "x$enable_watch8bit" = "xyes"],
--    [AC_MSG_ERROR([Cannot have both --enable-watch8bit and --without-ncurses])])
--else
--  AM_CONDITIONAL(WITH_NCURSES, true)
--  PKG_CHECK_MODULES([NCURSES], [ncursesw],
--    [AC_DEFINE([HAVE_NCURSES], [1], [Use NCURSESW])],
--    [
--      AS_IF([test "x$enable_watch8bit" = "xyes"],
--        [AC_MSG_ERROR([Cannot find ncurses wide library ncursesw with --enable-watch8bit])])
--      PKG_CHECK_MODULES([NCURSES], [ncurses],
-         [AC_DEFINE([HAVE_NCURSES], [1], [Use NCURSES])],
--        [AC_MSG_ERROR([ncurses support missing/incomplete (for partial build use --without-ncurses)])]
--      )
--    ]
--  )
--fi
- #  PKG_CHECK_MODULES([NCURSES], [ncurses], [], [
- #    AC_CHECK_LIB(ncurses, initscr, [have_ncurses=yes], [have_ncurses=no])
- #    AC_CHECK_HEADERS(curses.h ncurses.h term.h, [], [have_ncurses=no], AC_INCLUDES_DEFAULT)
+diff --git a/library/devname.c b/library/devname.c
+index 6a23653..e30d04c 100644
+--- a/library/devname.c
++++ b/library/devname.c
+@@ -59,7 +59,11 @@ typedef struct tty_map_node {
+   char name[16];
+ } tty_map_node;
+ 
++#ifdef __MVS__
++static tty_map_node *tty_map = NULL;
++#else
+ static __thread tty_map_node *tty_map = NULL;
++#endif
+ 
+ /* Load /proc/tty/drivers for device name mapping use. */
+ static void load_drivers(void){
+@@ -324,7 +328,11 @@ static int ctty_name(char *restrict const buf, int pid) {
+ 
+ /* number --> name */
+ unsigned dev_to_tty(char *restrict ret, unsigned chop, dev_t dev_t_dev, int pid, unsigned int flags) {
++#ifdef __MVS__
++  static char buf[TTY_NAME_SIZE];
++#else
+   static __thread char buf[TTY_NAME_SIZE];
++#endif
+   char *restrict tmp = buf;
+   unsigned dev = dev_t_dev;
+   unsigned i = 0;
 diff --git a/library/diskstats.c b/library/diskstats.c
 index b4e41f3..70e032e 100644
 --- a/library/diskstats.c
@@ -88,6 +91,22 @@ index b4e41f3..70e032e 100644
  /*
   * procps_diskstats_sort():
   *
+diff --git a/library/escape.c b/library/escape.c
+index 16a2619..a52fc72 100644
+--- a/library/escape.c
++++ b/library/escape.c
+@@ -93,7 +93,11 @@ static inline void esc_ctl (unsigned char *str, int len) {
+ }
+ 
+ int escape_str (char *dst, const char *src, int bufsize) {
++#ifdef __MVS__
++   static int utf_sw = 0;
++#else
+    static __thread int utf_sw = 0;
++#endif
+    int n;
+ 
+    if (utf_sw == 0) {
 diff --git a/library/include/readproc.h b/library/include/readproc.h
 index 33c630e..42bd90f 100644
 --- a/library/include/readproc.h
@@ -222,63 +241,33 @@ index 12aee10..fecc959 100644
  
  //#define UNREF_RPTHASH                // report hash details at uref() time
  
-diff --git a/library/stat.c b/library/stat.c
-index 0f88246..d088310 100644
---- a/library/stat.c
-+++ b/library/stat.c
-@@ -514,6 +514,12 @@ static int stat_cores_verify (
-     char buf[CORE_BUFSIZ];
-     int a_cpu, a_core;
-     FILE *fp;
+diff --git a/library/pwcache.c b/library/pwcache.c
+index f75e207..defdf22 100644
+--- a/library/pwcache.c
++++ b/library/pwcache.c
+@@ -41,6 +41,9 @@
+ 
+ static char ERRname[] = "?";
+ 
 +#ifdef __MVS__
-+        if (!stat_core_add(info, 1, 1)) {
-+            return 0;
-+        }	
-+	return 1;
++#define __thread
 +#endif
- 
-     if (!(fp = fopen(CORE_FILE, "r")))
-         return 0;
-@@ -759,6 +765,7 @@ static int stat_read_failed (
-     sum_ptr->numa_node = STAT_NODE_INVALID;     // mark as invalid
- 
-     // now value the cpu summary tics from line #1
-+#ifndef __MVS__
- #ifdef __CYGWIN__
-     if (4 > sscanf(bp, "cpu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu"
- #else
-@@ -771,6 +778,7 @@ static int stat_read_failed (
-             errno = ERANGE;
-             return 1;
-     }
-+#endif
-     stat_derive_unique(sum_ptr);
- #ifdef CPU_IDLE_FORCED
-     /* if any cpu accumulated substantially fewer tics than what is expected |
-@@ -784,6 +792,7 @@ static int stat_read_failed (
- reap_em_again:
-     cpu_ptr = info->cpus.hist.tics + i;   // adapt to relocated if reap_em_again
- 
-+#ifndef __MVS__
-     do {
-         bp = 1 + strchr(bp, '\n');
-         // remember this cpu from last time around
-@@ -851,6 +860,7 @@ reap_em_again:
- 
-     // remember sys_hist stuff from last time around
-     memcpy(&info->sys_hist.old, &info->sys_hist.new, sizeof(struct stat_data));
-+#endif
- 
-     llnum = 0;
-     if ((b = strstr(bp, "intr ")))
-@@ -1068,6 +1078,7 @@ PROCPS_EXPORT int procps_stat_new (
-     }
-     if (failed) _Exit(EXIT_FAILURE);
+ static __thread struct pwbuf {
+     struct pwbuf *next;
+     uid_t uid;
+diff --git a/library/readproc.c b/library/readproc.c
+index 94030e9..3d01369 100644
+--- a/library/readproc.c
++++ b/library/readproc.c
+@@ -64,6 +64,8 @@ extern void __cyg_profile_func_enter(void*,void*);
+ #define IS_THREAD(q) ( q->tid != q->tgid )
  #endif
-+    
  
-     if (info == NULL || *info != NULL)
-         return -EINVAL;
++#define __thread 
++
+ // utility buffers of MAX_BUFSZ bytes each, available to
+ // any function following an openproc() call
+ static __thread char *src_buffer,
 diff --git a/library/sysinfo.c b/library/sysinfo.c
 index 35a9922..de937ce 100644
 --- a/library/sysinfo.c
@@ -439,20 +428,19 @@ index f9ae715..61f8077 100644
  #include "procps-private.h"
  #include "vmstat.h"
  
-diff --git a/local/c.h b/local/c.h
-index 2471209..c25767d 100644
---- a/local/c.h
-+++ b/local/c.h
-@@ -75,6 +75,9 @@
- # ifdef HAVE___PROGNAME
- extern char *__progname;
- #  define program_invocation_short_name __progname
-+# elif defined(__MVS__)
-+# warning "IN MVS"
-+# define program_invocation_short_name getprogname()
- # else
- #  ifdef HAVE_GETEXECNAME
- #   define program_invocation_short_name \
+diff --git a/library/wchan.c b/library/wchan.c
+index d342fef..2e70c93 100644
+--- a/library/wchan.c
++++ b/library/wchan.c
+@@ -27,6 +27,8 @@
+ 
+ #include "wchan.h"  // to verify prototype
+ 
++#define __thread
++
+ 
+ const char *lookup_wchan (int pid) {
+    static __thread char buf[64];
 diff --git a/local/procio.c b/local/procio.c
 index bbd7c84..bfce433 100644
 --- a/local/procio.c
@@ -511,22 +499,6 @@ index bbd7c84..bfce433 100644
  out:
  	return handle;
  }
-diff --git a/src/pgrep.c b/src/pgrep.c
-index 94607a3..b866a98 100644
---- a/src/pgrep.c
-+++ b/src/pgrep.c
-@@ -1087,8 +1087,10 @@ inline static int execute_kill(pid_t pid, int sig_num)
- {
-     if (use_sigqueue)
-         return sigqueue(pid, sig_num, sigval);
--    else
-+    else {
-+	    	fprintf(stderr, "Killing %d\n", pid);
-         return kill(pid, sig_num);
-+  }
- }
- 
- int main (int argc, char **argv)
 diff --git a/src/ps/display.c b/src/ps/display.c
 index 4207cf8..0c86abb 100644
 --- a/src/ps/display.c
@@ -555,63 +527,32 @@ index 374b27f..cf50161 100644
  char            forest_prefix[4 * 32*1024 + 100];     // FIXME
  int             forest_type = -1;
 diff --git a/src/ps/output.c b/src/ps/output.c
-index 7b9ecd1..48cd2c3 100644
+index 7b9ecd1..ec2f200 100644
 --- a/src/ps/output.c
 +++ b/src/ps/output.c
-@@ -112,6 +112,7 @@ static unsigned long memory_total()
-     static unsigned long memory_total = 0;
-     struct meminfo_info *mem_info = NULL;
- 
-+#ifndef __MVS__
-     if (memory_total == 0) {
-         if (procps_meminfo_new(&mem_info) < 0)
- 	        xerrx(EXIT_FAILURE,
-@@ -119,6 +120,7 @@ static unsigned long memory_total()
-        memory_total = MEMINFO_GET(mem_info, MEMINFO_MEM_TOTAL, ul_int);
-        procps_meminfo_unref(&mem_info);
-     }
-+#endif
-     return memory_total;
- }
- 
-@@ -1764,7 +1766,7 @@ static const format_struct format_array[] = { /*
- {"pending",   "PENDING", pr_sig,           PIDS_SIGNALS,             9,    BSD,  ET|SIGNAL}, /*sig*/
- {"pgid",      "PGID",    pr_pgid,          PIDS_ID_PGRP,             5,    U98,  PO|PIDMAX|RIGHT},
- {"pgrp",      "PGRP",    pr_pgid,          PIDS_ID_PGRP,             5,    LNX,  PO|PIDMAX|RIGHT},
--{"pid",       "PID",     pr_procs,         PIDS_ID_TGID,             5,    U98,  PO|PIDMAX|RIGHT},
-+{"pid",       "PID",     pr_procs,         PIDS_ID_TID,             5,    U98,  PO|PIDMAX|RIGHT},
- {"pidns",     "PIDNS",   pr_pidns,         PIDS_NS_PID,             10,    LNX,  ET|RIGHT},
- {"pmem",      "%MEM",    pr_pmem,          PIDS_VM_RSS,              4,    XXX,  PO|RIGHT}, /* %mem */
- {"poip",      "-",       pr_nop,           PIDS_noop,                1,    BSD,  AN|RIGHT},
-@@ -2327,21 +2329,27 @@ void init_output(void)
- 
-     // add page_size-1 to round up
-     outbuf_pages = (OUTBUF_SIZE+SPACE_AMOUNT+page_size-1)/page_size;
-+#ifdef __MVS__
-+    outbuf = malloc(page_size*(outbuf_pages+1));
-+#else
-     outbuf = mmap(
+@@ -2331,7 +2331,11 @@ void init_output(void)
  	    0,
  	    page_size * (outbuf_pages+1), // 1 more, for guard page at high addresses
  	    PROT_READ | PROT_WRITE,
 -	    MAP_PRIVATE | MAP_ANONYMOUS,
++#ifndef __MVS__
 +           MAP_PRIVATE | MAP_ANONYMOUS,
++#else
++           MAP_PRIVATE ,
++#endif
  	    -1,
  	    0);
  
-     if(outbuf == MAP_FAILED)
-         catastrophic_failure(__FILE__, __LINE__, _("please report this bug"));
-+#endif
- 
-     memset(outbuf, ' ', SPACE_AMOUNT);
-+#ifndef __MVS__
-     if(SPACE_AMOUNT==page_size)
- 	mprotect(outbuf, page_size, PROT_READ);
-     mprotect(outbuf + page_size*outbuf_pages, page_size, PROT_NONE); // guard page
-+#endif
-     saved_outbuf = outbuf + SPACE_AMOUNT;
-     // available space:  page_size*outbuf_pages-SPACE_AMOUNT
-     seconds_since_1970 = time(NULL);
+diff --git a/src/pwdx.c b/src/pwdx.c
+index 90ead80..5cd53d1 100644
+--- a/src/pwdx.c
++++ b/src/pwdx.c
+@@ -1,4 +1,4 @@
+-/*
++/AIX*
+  * pwdx.c - print process working directory
+  *
+  * Copyright Â© 2015-2023 Craig Small <csmall@dropbear.xyz>
 diff --git a/src/slabtop.c b/src/slabtop.c
 index 7144348..474386c 100644
 --- a/src/slabtop.c
@@ -626,7 +567,7 @@ index 7144348..474386c 100644
  #include <stdio.h>
  #include <stdlib.h>
 diff --git a/src/top/top.c b/src/top/top.c
-index b09f659..6e104e5 100644
+index b09f659..21d5164 100644
 --- a/src/top/top.c
 +++ b/src/top/top.c
 @@ -25,7 +25,9 @@
@@ -639,17 +580,10 @@ index b09f659..6e104e5 100644
  #include <signal.h>
  #include <stdarg.h>
  #include <stdio.h>
-@@ -59,6 +61,17 @@
+@@ -59,6 +61,10 @@
  #include "top.h"
  #include "top_nls.h"
  
-+char *strcasestr(const char *h, const char *n)
-+{
-+	size_t l = strlen(n);
-+	for (; *h; h++) if (!strncasecmp(h, n, l)) return (char *)h;
-+	return 0;
-+}
-+
 +
 +#undef key_tab
 +#define __thread 
@@ -657,29 +591,7 @@ index b09f659..6e104e5 100644
  /*######  Miscellaneous global stuff  ####################################*/
  
          /* The original and new terminal definitions
-@@ -2768,8 +2781,10 @@ static void *memory_refresh (void *unused) {
-       cur_secs = time(NULL);
- 
-       if (3 <= cur_secs - sav_secs) {
-+#ifndef __MVS__
-          if (!(Mem_stack = procps_meminfo_select(Mem_ctx, Mem_items, MAXTBL(Mem_items))))
-             error_exit(fmtmk(N_fmt(LIB_errormem_fmt), __LINE__, strerror(errno)));
-+#endif
-          sav_secs = cur_secs;
-       }
- #ifdef THREADED_MEM
-@@ -4436,6 +4451,10 @@ static void signals_set (void) {
-    }
- } // end: signals_set
- 
-+void setbuffer(FILE *f, char *buf, size_t size)
-+{
-+    setvbuf(f, buf, buf ? _IOFBF : _IONBF, size);
-+}
- 
-         /*
-          * Set up the terminal attributes */
-@@ -4460,6 +4479,7 @@ static void whack_terminal (void) {
+@@ -4460,6 +4466,7 @@ static void whack_terminal (void) {
     Ttychanged = 1;
  
     // first, a consistent canonical mode for interactive line input
@@ -741,21 +653,3 @@ index cb2e299..acd9f29 100644
  #endif	/* WITH_WATCH8BIT */
  
  #ifdef FORCE_8BIT
-diff --git a/testsuite/ps.test/test-schedbatch.c b/testsuite/ps.test/test-schedbatch.c
-index 9b4d334..4a848db 100644
---- a/testsuite/ps.test/test-schedbatch.c
-+++ b/testsuite/ps.test/test-schedbatch.c
-@@ -30,11 +30,13 @@ int main(int argc, const char *argv[])
- 		nice = atoi(argv[1]);
- 	}
- 	sp.sched_priority = 0;
-+#ifndef __MVS__
- #ifdef SCHED_BATCH
- 	if (sched_setscheduler(0, SCHED_BATCH, &sp)) {
- 		perror("sched_setscheduler(0,SCHED_BATCH,{.sched_priority=0}");
- 	}
- #endif /* SCHED_BATCH */
-+#endif
- 	if (setpriority(PRIO_PROCESS, 0, nice) || errno) {
- 		(void)snprintf(msg, sizeof(msg),
- 			       "setpriority(PRIO_PROCESS, 0, %d)", nice);
