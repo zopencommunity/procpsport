@@ -7,9 +7,10 @@ export ZOPEN_STABLE_DEPS="perl m4 gettext libtool autoconf automake wget bash co
 export ZOPEN_BOOTSTRAP="./autogen.sh"
 export ZOPEN_BUILD_LINE="STABLE"
 export ZOPEN_COMP=CLANG
-export ZOPEN_EXTRA_CONFIGURE_OPTS="--with-ncurses"
+export ZOPEN_EXTRA_CONFIGURE_OPTS="--without-ncurses"
 export ZOPEN_EXTRA_CPPFLAGS="-I\${NCURSES_HOME}/include/ncurses -D__thread="
 export ZOPEN_CHECK="skip"
+export ZOPEN_SYSTEM_PREREQ="procfs"
 
 zopen_post_buildenv()
 {

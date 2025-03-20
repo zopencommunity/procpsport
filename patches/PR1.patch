@@ -1,7 +1,7 @@
-diff --git a/configure.ac b/configure.ac
+diff --git i/configure.ac w/configure.ac
 index 629881a..ba4c321 100644
---- a/configure.ac
-+++ b/configure.ac
+--- i/configure.ac
++++ w/configure.ac
 @@ -41,13 +41,6 @@ AC_PROG_CPP
  AC_PROG_INSTALL
  AC_PROG_LN_S
@@ -27,10 +27,10 @@ index 629881a..ba4c321 100644
  AC_FUNC_STRCOLL
  AC_FUNC_STRTOD
  
-diff --git a/library/devname.c b/library/devname.c
+diff --git i/library/devname.c w/library/devname.c
 index 6a23653..e30d04c 100644
---- a/library/devname.c
-+++ b/library/devname.c
+--- i/library/devname.c
++++ w/library/devname.c
 @@ -59,7 +59,11 @@ typedef struct tty_map_node {
    char name[16];
  } tty_map_node;
@@ -55,10 +55,10 @@ index 6a23653..e30d04c 100644
    char *restrict tmp = buf;
    unsigned dev = dev_t_dev;
    unsigned i = 0;
-diff --git a/library/diskstats.c b/library/diskstats.c
+diff --git i/library/diskstats.c w/library/diskstats.c
 index b4e41f3..70e032e 100644
---- a/library/diskstats.c
-+++ b/library/diskstats.c
+--- i/library/diskstats.c
++++ w/library/diskstats.c
 @@ -913,6 +913,31 @@ PROCPS_EXPORT struct diskstats_stack *procps_diskstats_select (
  } // end: procps_diskstats_select
  
@@ -91,10 +91,10 @@ index b4e41f3..70e032e 100644
  /*
   * procps_diskstats_sort():
   *
-diff --git a/library/escape.c b/library/escape.c
+diff --git i/library/escape.c w/library/escape.c
 index 16a2619..a52fc72 100644
---- a/library/escape.c
-+++ b/library/escape.c
+--- i/library/escape.c
++++ w/library/escape.c
 @@ -93,7 +93,11 @@ static inline void esc_ctl (unsigned char *str, int len) {
  }
  
@@ -107,10 +107,10 @@ index 16a2619..a52fc72 100644
     int n;
  
     if (utf_sw == 0) {
-diff --git a/library/include/readproc.h b/library/include/readproc.h
+diff --git i/library/include/readproc.h w/library/include/readproc.h
 index 33c630e..42bd90f 100644
---- a/library/include/readproc.h
-+++ b/library/include/readproc.h
+--- i/library/include/readproc.h
++++ w/library/include/readproc.h
 @@ -39,6 +39,8 @@
  // neither tgid nor tid seemed correct. (in other words, FIXME)
  #define XXXID tid
@@ -120,10 +120,10 @@ index 33c630e..42bd90f 100644
  // Basic data structure which holds all information we can get about a process.
  // (unless otherwise specified, fields are read from /proc/#/stat)
  //
-diff --git a/library/meminfo.c b/library/meminfo.c
+diff --git i/library/meminfo.c w/library/meminfo.c
 index 4289a23..29f7e92 100644
---- a/library/meminfo.c
-+++ b/library/meminfo.c
+--- i/library/meminfo.c
++++ w/library/meminfo.c
 @@ -21,7 +21,9 @@
  
  #include <errno.h>
@@ -229,10 +229,10 @@ index 4289a23..29f7e92 100644
          ENTRY *ep;
  
          if (!(tail = strchr(head, ':')))
-diff --git a/library/pids.c b/library/pids.c
+diff --git i/library/pids.c w/library/pids.c
 index 12aee10..fecc959 100644
---- a/library/pids.c
-+++ b/library/pids.c
+--- i/library/pids.c
++++ w/library/pids.c
 @@ -43,6 +43,7 @@
  #include "procps-private.h"
  #include "pids.h"
@@ -241,10 +241,10 @@ index 12aee10..fecc959 100644
  
  //#define UNREF_RPTHASH                // report hash details at uref() time
  
-diff --git a/library/pwcache.c b/library/pwcache.c
+diff --git i/library/pwcache.c w/library/pwcache.c
 index f75e207..defdf22 100644
---- a/library/pwcache.c
-+++ b/library/pwcache.c
+--- i/library/pwcache.c
++++ w/library/pwcache.c
 @@ -41,6 +41,9 @@
  
  static char ERRname[] = "?";
@@ -255,10 +255,10 @@ index f75e207..defdf22 100644
  static __thread struct pwbuf {
      struct pwbuf *next;
      uid_t uid;
-diff --git a/library/readproc.c b/library/readproc.c
+diff --git i/library/readproc.c w/library/readproc.c
 index 94030e9..3d01369 100644
---- a/library/readproc.c
-+++ b/library/readproc.c
+--- i/library/readproc.c
++++ w/library/readproc.c
 @@ -64,6 +64,8 @@ extern void __cyg_profile_func_enter(void*,void*);
  #define IS_THREAD(q) ( q->tid != q->tgid )
  #endif
@@ -268,10 +268,10 @@ index 94030e9..3d01369 100644
  // utility buffers of MAX_BUFSZ bytes each, available to
  // any function following an openproc() call
  static __thread char *src_buffer,
-diff --git a/library/sysinfo.c b/library/sysinfo.c
+diff --git i/library/sysinfo.c w/library/sysinfo.c
 index 35a9922..de937ce 100644
---- a/library/sysinfo.c
-+++ b/library/sysinfo.c
+--- i/library/sysinfo.c
++++ w/library/sysinfo.c
 @@ -92,6 +92,8 @@ PROCPS_EXPORT int procps_loadavg(
          double *restrict av5,
          double *restrict av15)
@@ -313,10 +313,10 @@ index 35a9922..de937ce 100644
 +#endif
  }
  
-diff --git a/library/uptime.c b/library/uptime.c
+diff --git i/library/uptime.c w/library/uptime.c
 index 16f1b05..8dbf4af 100644
---- a/library/uptime.c
-+++ b/library/uptime.c
+--- i/library/uptime.c
++++ w/library/uptime.c
 @@ -30,12 +30,17 @@
  #include <string.h>
  #include <time.h>
@@ -380,10 +380,10 @@ index 16f1b05..8dbf4af 100644
  
      if (uptime_secs)
          *uptime_secs = up;
-diff --git a/library/vmstat.c b/library/vmstat.c
+diff --git i/library/vmstat.c w/library/vmstat.c
 index f9ae715..61f8077 100644
---- a/library/vmstat.c
-+++ b/library/vmstat.c
+--- i/library/vmstat.c
++++ w/library/vmstat.c
 @@ -24,7 +24,9 @@
  
  #include <errno.h>
@@ -428,10 +428,10 @@ index f9ae715..61f8077 100644
  #include "procps-private.h"
  #include "vmstat.h"
  
-diff --git a/library/wchan.c b/library/wchan.c
+diff --git i/library/wchan.c w/library/wchan.c
 index d342fef..2e70c93 100644
---- a/library/wchan.c
-+++ b/library/wchan.c
+--- i/library/wchan.c
++++ w/library/wchan.c
 @@ -27,6 +27,8 @@
  
  #include "wchan.h"  // to verify prototype
@@ -441,10 +441,10 @@ index d342fef..2e70c93 100644
  
  const char *lookup_wchan (int pid) {
     static __thread char buf[64];
-diff --git a/local/procio.c b/local/procio.c
+diff --git i/local/procio.c w/local/procio.c
 index bbd7c84..bfce433 100644
---- a/local/procio.c
-+++ b/local/procio.c
+--- i/local/procio.c
++++ w/local/procio.c
 @@ -46,6 +46,7 @@ static ssize_t proc_read(void *, char *, size_t);
  static ssize_t proc_write(void *, const char *, size_t);
  static int proc_close(void *);
@@ -499,10 +499,10 @@ index bbd7c84..bfce433 100644
  out:
  	return handle;
  }
-diff --git a/src/ps/display.c b/src/ps/display.c
+diff --git i/src/ps/display.c w/src/ps/display.c
 index 4207cf8..0c86abb 100644
---- a/src/ps/display.c
-+++ b/src/ps/display.c
+--- i/src/ps/display.c
++++ w/src/ps/display.c
 @@ -29,7 +29,9 @@
  #include <string.h>
  #include <unistd.h>
@@ -513,10 +513,10 @@ index 4207cf8..0c86abb 100644
  #include <sys/types.h>
  
  #include "c.h"
-diff --git a/src/ps/global.c b/src/ps/global.c
+diff --git i/src/ps/global.c w/src/ps/global.c
 index 374b27f..cf50161 100644
---- a/src/ps/global.c
-+++ b/src/ps/global.c
+--- i/src/ps/global.c
++++ w/src/ps/global.c
 @@ -175,7 +175,7 @@ const char     *bsd_u_format = (const char *)0xdeadbeef;
  const char     *bsd_v_format = (const char *)0xdeadbeef;
  int             bsd_c_option = -1;
@@ -526,10 +526,10 @@ index 374b27f..cf50161 100644
  int             cached_tty = -1;
  char            forest_prefix[4 * 32*1024 + 100];     // FIXME
  int             forest_type = -1;
-diff --git a/src/ps/output.c b/src/ps/output.c
+diff --git i/src/ps/output.c w/src/ps/output.c
 index 7b9ecd1..ec2f200 100644
---- a/src/ps/output.c
-+++ b/src/ps/output.c
+--- i/src/ps/output.c
++++ w/src/ps/output.c
 @@ -2331,7 +2331,11 @@ void init_output(void)
  	    0,
  	    page_size * (outbuf_pages+1), // 1 more, for guard page at high addresses
@@ -543,20 +543,10 @@ index 7b9ecd1..ec2f200 100644
  	    -1,
  	    0);
  
-diff --git a/src/pwdx.c b/src/pwdx.c
-index 90ead80..5cd53d1 100644
---- a/src/pwdx.c
-+++ b/src/pwdx.c
-@@ -1,4 +1,4 @@
--/*
-+/AIX*
-  * pwdx.c - print process working directory
-  *
-  * Copyright Â© 2015-2023 Craig Small <csmall@dropbear.xyz>
-diff --git a/src/slabtop.c b/src/slabtop.c
+diff --git i/src/slabtop.c w/src/slabtop.c
 index 7144348..474386c 100644
---- a/src/slabtop.c
-+++ b/src/slabtop.c
+--- i/src/slabtop.c
++++ w/src/slabtop.c
 @@ -27,7 +27,7 @@
  #include <errno.h>
  #include <getopt.h>
@@ -566,10 +556,10 @@ index 7144348..474386c 100644
  #include <signal.h>
  #include <stdio.h>
  #include <stdlib.h>
-diff --git a/src/top/top.c b/src/top/top.c
+diff --git i/src/top/top.c w/src/top/top.c
 index b09f659..21d5164 100644
---- a/src/top/top.c
-+++ b/src/top/top.c
+--- i/src/top/top.c
++++ w/src/top/top.c
 @@ -25,7 +25,9 @@
  #include <limits.h>
  #include <pwd.h>
@@ -599,10 +589,10 @@ index b09f659..21d5164 100644
     tmptty = Tty_original;
     tmptty.c_lflag |= (ECHO | ECHOCTL | ECHOE | ICANON | ISIG);
     tmptty.c_lflag &= ~NOFLSH;
-diff --git a/src/vmstat.c b/src/vmstat.c
+diff --git i/src/vmstat.c w/src/vmstat.c
 index c0cef95..d0067e8 100644
---- a/src/vmstat.c
-+++ b/src/vmstat.c
+--- i/src/vmstat.c
++++ w/src/vmstat.c
 @@ -924,6 +924,11 @@ static void fork_format(void)
      procps_stat_unref(&stat_info);
  }
@@ -615,10 +605,10 @@ index c0cef95..d0067e8 100644
  static int winhi(void)
  {
      struct winsize win;
-diff --git a/src/w.c b/src/w.c
+diff --git i/src/w.c w/src/w.c
 index 5e878f0..c9f3eb5 100644
---- a/src/w.c
-+++ b/src/w.c
+--- i/src/w.c
++++ w/src/w.c
 @@ -69,6 +69,11 @@ typedef struct utmpx utmp_t;
  typedef struct utmp utmp_t;
  #endif
@@ -640,10 +630,10 @@ index 5e878f0..c9f3eb5 100644
  	int32_t ut_addr_v6[4];      /* IP address of the remote host */
  
  	if (ip_addresses) { /* -i switch used */
-diff --git a/src/watch.c b/src/watch.c
+diff --git i/src/watch.c w/src/watch.c
 index cb2e299..acd9f29 100644
---- a/src/watch.c
-+++ b/src/watch.c
+--- i/src/watch.c
++++ w/src/watch.c
 @@ -55,7 +55,7 @@
  # include <wctype.h>
  # include <ncursesw/ncurses.h>
