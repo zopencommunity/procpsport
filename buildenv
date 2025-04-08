@@ -3,12 +3,13 @@ export ZOPEN_DEV_DEPS="bash coreutils zoslib perl libtool make m4 gettext automa
 export PROCPS_VERSION="4.0.3"
 export ZOPEN_STABLE_URL="https://gitlab.com/procps-ng/procps/-/archive/v${PROCPS_VERSION}/procps-v${PROCPS_VERSION}.tar.gz"
 export ZOPEN_CATEGORIES="utilities"
-export ZOPEN_STABLE_DEPS="perl m4 gettext libtool autoconf automake wget bash coreutils zoslib make sed gawk xz getopt ncurses curl"
+export ZOPEN_STABLE_DEPS="perl m4 gettext libtool autoconf automake wget bash coreutils zoslib make sed gawk xz getopt ncurses curl pkgconfig"
 export ZOPEN_BOOTSTRAP="./autogen.sh"
 export ZOPEN_BUILD_LINE="STABLE"
 export ZOPEN_COMP=CLANG
+export ZOPEN_EXTRA_MAKE_OPTS="WITH_NCURSES=1"
 export ZOPEN_EXTRA_CONFIGURE_OPTS="--without-ncurses"
-export ZOPEN_EXTRA_CPPFLAGS="-I\${NCURSES_HOME}/include/ncurses -D__thread="
+export ZOPEN_EXTRA_CPPFLAGS="-I\${NCURSES_HOME}/include/ncurses -D__thread=1"
 export ZOPEN_CHECK="skip"
 export ZOPEN_SYSTEM_PREREQ="procfs"
 
@@ -16,6 +17,12 @@ zopen_post_buildenv()
 {
   export NCURSES_LIBS="$LIBS"	
   export NCURSES_CFLAGS="$CFLAGS $CPPCFLAGS"	
+}
+
+zopen_init()
+{
+  export AC_MACRO_PATH="$AUTOCONF_HOME/share/autoconf/autoconf"
+  echo $AC_MACRO_PATH
 }
 
 zopen_check_results()

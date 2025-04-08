@@ -1,5 +1,5 @@
 diff --git i/configure.ac w/configure.ac
-index 629881a..ba4c321 100644
+index 629881a..64b41f3 100644
 --- i/configure.ac
 +++ w/configure.ac
 @@ -41,13 +41,6 @@ AC_PROG_CPP
@@ -27,6 +27,16 @@ index 629881a..ba4c321 100644
  AC_FUNC_STRCOLL
  AC_FUNC_STRTOD
  
+@@ -240,6 +231,9 @@ else
+     ]
+   )
+ fi
++
++AM_CONDITIONAL(WITH_NCURSES, true)
++AC_DEFINE([HAVE_NCURSES], [1], [Use NCURSES])
+ #  PKG_CHECK_MODULES([NCURSES], [ncurses], [], [
+ #    AC_CHECK_LIB(ncurses, initscr, [have_ncurses=yes], [have_ncurses=no])
+ #    AC_CHECK_HEADERS(curses.h ncurses.h term.h, [], [have_ncurses=no], AC_INCLUDES_DEFAULT)
 diff --git i/library/devname.c w/library/devname.c
 index 6a23653..e30d04c 100644
 --- i/library/devname.c
@@ -441,6 +451,19 @@ index d342fef..2e70c93 100644
  
  const char *lookup_wchan (int pid) {
     static __thread char buf[64];
+diff --git i/local/c.h w/local/c.h
+index 2471209..dfb43e2 100644
+--- i/local/c.h
++++ w/local/c.h
+@@ -75,6 +75,8 @@
+ # ifdef HAVE___PROGNAME
+ extern char *__progname;
+ #  define program_invocation_short_name __progname
++# elif __MVS__
++#  define program_invocation_short_name getprogname()
+ # else
+ #  ifdef HAVE_GETEXECNAME
+ #   define program_invocation_short_name \
 diff --git i/local/procio.c w/local/procio.c
 index bbd7c84..bfce433 100644
 --- i/local/procio.c
@@ -557,7 +580,7 @@ index 7144348..474386c 100644
  #include <stdio.h>
  #include <stdlib.h>
 diff --git i/src/top/top.c w/src/top/top.c
-index b09f659..21d5164 100644
+index b09f659..7e9ebff 100644
 --- i/src/top/top.c
 +++ w/src/top/top.c
 @@ -25,7 +25,9 @@
@@ -570,10 +593,16 @@ index b09f659..21d5164 100644
  #include <signal.h>
  #include <stdarg.h>
  #include <stdio.h>
-@@ -59,6 +61,10 @@
+@@ -59,6 +61,16 @@
  #include "top.h"
  #include "top_nls.h"
  
++#ifdef __MVS__
++void setbuffer(FILE *f, char *buf, size_t size)
++{
++	setvbuf(f, buf, buf ? _IOFBF : _IONBF, size);
++}
++#endif
 +
 +#undef key_tab
 +#define __thread 
@@ -581,7 +610,7 @@ index b09f659..21d5164 100644
  /*######  Miscellaneous global stuff  ####################################*/
  
          /* The original and new terminal definitions
-@@ -4460,6 +4466,7 @@ static void whack_terminal (void) {
+@@ -4460,6 +4472,7 @@ static void whack_terminal (void) {
     Ttychanged = 1;
  
     // first, a consistent canonical mode for interactive line input
@@ -643,3 +672,16 @@ index cb2e299..acd9f29 100644
  #endif	/* WITH_WATCH8BIT */
  
  #ifdef FORCE_8BIT
+diff --git i/testsuite/ps.test/test-schedbatch.c w/testsuite/ps.test/test-schedbatch.c
+index 9b4d334..c09d63d 100644
+--- i/testsuite/ps.test/test-schedbatch.c
++++ w/testsuite/ps.test/test-schedbatch.c
+@@ -30,7 +30,7 @@ int main(int argc, const char *argv[])
+ 		nice = atoi(argv[1]);
+ 	}
+ 	sp.sched_priority = 0;
+-#ifdef SCHED_BATCH
++#if defined(SCHED_BATCH) && !defined(__MVS__)
+ 	if (sched_setscheduler(0, SCHED_BATCH, &sp)) {
+ 		perror("sched_setscheduler(0,SCHED_BATCH,{.sched_priority=0}");
+ 	}
